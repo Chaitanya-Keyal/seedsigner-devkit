@@ -3,14 +3,17 @@
 # Everyday commands for an ESP32-P4 board running the SeedSigner MicroPython port
 # (kdmukai/seedsigner-micropython-builder), over the board's USB-UART cable.
 #
-#   p4 log [--reset]   board log, read-only (Ctrl+C quits, the app keeps running);
-#                      --reset restarts the board first to show the whole boot
-#   p4 repl            MicroPython REPL via mpremote (Ctrl+C stops the app, Ctrl+D restarts it)
+# Leave the app running:
+#   p4 log             board log, read-only (Ctrl+C quits)
+#   p4 repl            MicroPython REPL via mpremote (Ctrl+] quits; Ctrl+C there stops the
+#                      app, Ctrl+D restarts it)
+#   p4 attach|detach   WSL only: hand the board to WSL / back to Windows (usbipd-win)
+#
+# Restart the board:
+#   p4 log --reset     restart, then show the log from the first line of the boot
 #   p4 deploy [args]   builder's overlay lane: tools/deploy_app.py --mode overlay
 #   p4 undeploy        builder's overlay lane: tools/deploy_app.py --mode overlay-clear
 #   p4 flash <dir>     flash a dist folder (the one holding flash_args), as in the builder README
-#   p4 chip            print the chip type and revision
-#   p4 attach|detach   WSL only: hand the board to WSL / back to Windows (usbipd-win)
 #
 # Commands that talk to the board attach it to WSL first if it isn't there.
 #
@@ -117,10 +120,6 @@ except serial.SerialException as e:
     echo "p4: flashing $dir"
     cd "$dir"
     exec "$PY" -m esptool --chip esp32p4 -p "$PORT" write-flash @flash_args ;;
-
-  chip)
-    need_port "$@"
-    exec "$PY" -m esptool -p "$PORT" chip-id ;;
 
   -h|--help|help|"") usage ;;
   *) echo "p4: unknown command '$CMD'" >&2; usage 1 ;;

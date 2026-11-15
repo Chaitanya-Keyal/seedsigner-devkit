@@ -154,12 +154,12 @@ from WSL2.
 
 | Command | What it does |
 | --- | --- |
-| `p4 log [--reset]` | Board log at 115200, read-only. Ctrl+C quits and leaves the app running; `--reset` restarts the board first to show the whole boot |
-| `p4 repl` | MicroPython REPL (mpremote). Ctrl+C stops the app, Ctrl+D restarts it |
-| `p4 deploy` | The builder's overlay lane (`tools/deploy_app.py --mode overlay`, see its `README-dev.md`): pushes your app checkout over the frozen app and restarts. No firmware rebuild |
-| `p4 undeploy` | `tools/deploy_app.py --mode overlay-clear`: removes the overlay, so the frozen app runs again |
-| `p4 flash <dir>` | Flashes a dist folder (the one holding `flash_args`), the same `esptool write-flash @flash_args` as the builder's README |
-| `p4 chip` | Chip type and revision |
+| `p4 log` | Board log at 115200, read-only. Ctrl+C quits; the app keeps running |
+| `p4 repl` | MicroPython REPL (mpremote). Ctrl+] quits; Ctrl+C there stops the app and Ctrl+D restarts it |
+| `p4 log --reset` | Restarts the board, then shows the log from the first line of the boot |
+| `p4 deploy` | The builder's overlay lane (`tools/deploy_app.py --mode overlay`, see its `README-dev.md`): stops the app, pushes your app checkout over the frozen app and restarts the board. No firmware rebuild |
+| `p4 undeploy` | `tools/deploy_app.py --mode overlay-clear`: removes the overlay and restarts the board, so the frozen app runs again |
+| `p4 flash <dir>` | Flashes a dist folder (the one holding `flash_args`), the same `esptool write-flash @flash_args` as the builder's README. Prints the chip type and revision first |
 | `p4 attach` / `p4 detach` | WSL: hand the board to WSL or back to Windows |
 
 Commands that talk to the board first attach it to WSL with
