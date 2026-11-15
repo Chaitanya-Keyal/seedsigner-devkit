@@ -1,10 +1,14 @@
 # seedsigner-devkit
 
-Tools for developing [SeedSigner](https://github.com/SeedSigner/seedsigner) on a real
-device running a [seedsigner-os](https://github.com/SeedSigner/seedsigner-os) `-dev`
-image: deploy a local checkout in one command, mirror the screen to an HDMI monitor,
-drive the app from a USB keyboard, read the app's log, and reach the device over
-Tailscale.
+Tools for developing [SeedSigner](https://github.com/SeedSigner/seedsigner) on real
+hardware:
+
+- a Raspberry Pi running a [seedsigner-os](https://github.com/SeedSigner/seedsigner-os)
+  `-dev` image: deploy a local checkout in one command, mirror the screen to an HDMI
+  monitor, drive the app from a USB keyboard, read the app's log, and reach the device
+  over Tailscale;
+- an ESP32-P4 board running the SeedSigner MicroPython port: log, REPL, deploy and
+  flash over the serial cable (see [ESP32-P4 boards](#esp32-p4-boards-micropython-port)).
 
 None of this changes the app. It all lives outside the app's source tree.
 
@@ -15,6 +19,7 @@ None of this changes the app. It all lives outside the app's source tree.
 | `device/sitecustomize.py` | device | HDMI mirror, USB keyboard as buttons, cropped LCD region, service log |
 | `device/bashrc`, `device/bash_profile` | device | Root shell: prompt, history, aliases `ll`, `app`, `applog`, `logs` |
 | `image/` | image build | Changes to seedsigner-os: Tailscale, console and reboot fixes, a `wifi.txt` example |
+| `host/p4` | your machine | Log, REPL, overlay deploy and flashing for an ESP32-P4 board |
 
 Tested on a Pi Zero 2 W with the Waveshare 1.3" LCD HAT.
 
@@ -129,6 +134,17 @@ At boot the binaries are copied to `/mnt/data/tailscale` and `tailscaled` starts
 userspace-networking mode (the kernel has no TUN device), keeping its login state there.
 The device joins as `seedsigner-dev`.
 
+## Known issues with the -dev image
+
+- On the Pi Zero 2 W the cpufreq driver fails to probe (error -95), so the CPU runs at
+  600 MHz instead of 1 GHz, release images included
+  ([seedsigner-os#129](https://github.com/SeedSigner/seedsigner-os/issues/129)).
+  `force_turbo=1` in `config.txt` runs it at full speed.
+- The dropbear host key is regenerated on every boot, so ssh warns about a changed key.
+  `StrictHostKeyChecking accept-new` plus clearing the old entry, or a per-host
+  `UserKnownHostsFile /dev/null`, avoids the prompt.
+- With HDMI connected, the camera preview flashes on the monitor during camera tests.
+
 ## ESP32-P4 boards (MicroPython port)
 
 `host/p4` wraps the everyday commands for a board running the SeedSigner MicroPython
@@ -168,13 +184,3 @@ micropython/
 `SS_EMBIT_DIR`) can point elsewhere. The script's header lists the environment variables
 it reads: the port, the Python with esptool, pyserial and mpremote (default
 `~/esptool-venv`), and `P4_BUILDER` for a builder somewhere else.
-
-## Known issues with the -dev image
-
-- The cpufreq driver fails to probe (error -95), so the CPU runs at 600 MHz.
-  `force_turbo=1` in `config.txt` would lock it at full speed, but the app doesn't need
-  it.
-- The dropbear host key is regenerated on every boot, so ssh warns about a changed key.
-  `StrictHostKeyChecking accept-new` plus clearing the old entry, or a per-host
-  `UserKnownHostsFile /dev/null`, avoids the prompt.
-- With HDMI connected, the camera preview flashes on the monitor during camera tests.
