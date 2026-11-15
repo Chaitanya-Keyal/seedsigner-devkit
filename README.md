@@ -129,6 +129,35 @@ At boot the binaries are copied to `/mnt/data/tailscale` and `tailscaled` starts
 userspace-networking mode (the kernel has no TUN device), keeping its login state there.
 The device joins as `seedsigner-dev`.
 
+## ESP32-P4 boards (MicroPython port)
+
+`host/p4` wraps the everyday commands for a board running the SeedSigner MicroPython
+port ([seedsigner-micropython-builder](https://github.com/kdmukai/seedsigner-micropython-builder)),
+all over the board's USB-UART cable. Tested on the Waveshare ESP32-P4-WIFI6-Touch-LCD-4.3
+from WSL2.
+
+| Command | What it does |
+| --- | --- |
+| `p4 log [--reset]` | Board log at 115200, read-only. Ctrl+C quits and leaves the app running; `--reset` restarts the board first to show the whole boot |
+| `p4 repl` | MicroPython REPL (mpremote). Ctrl+C stops the app, Ctrl+D restarts it |
+| `p4 deploy` | The builder's overlay lane (`tools/deploy_app.py --mode overlay`, see its `README-dev.md`): pushes your app checkout over the frozen app and restarts. No firmware rebuild |
+| `p4 undeploy` | `tools/deploy_app.py --mode overlay-clear`: removes the overlay, so the frozen app runs again |
+| `p4 flash <dir>` | Flashes a dist folder (the one holding `flash_args`), the same `esptool write-flash @flash_args` as the builder's README |
+| `p4 chip` | Chip type and revision |
+| `p4 attach` / `p4 detach` | WSL: hand the board to WSL or back to Windows |
+
+Commands that talk to the board first attach it to WSL with
+[usbipd-win](https://github.com/dorssel/usbipd-win) if `/dev/ttyACM0` is missing, so
+replugging the board needs nothing extra. While it's attached, Windows has no COM port
+for it. Bind it once from an admin prompt (`usbipd bind --hardware-id 1a86:55d3`), and
+add yourself to `dialout`.
+
+The script's header lists the environment variables it reads: the port, the Python with
+esptool, pyserial and mpremote (default `~/esptool-venv`), and the builder checkout
+(default: next to this devkit). The builder's own `.env` sets `SS_APP_DIR` to the app
+checkout that `p4 deploy` pushes; it must be on a branch that matches the flashed
+firmware (`integration/lvgl-mpy`).
+
 ## Known issues with the -dev image
 
 - The cpufreq driver fails to probe (error -95), so the CPU runs at 600 MHz.

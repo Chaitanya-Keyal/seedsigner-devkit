@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+#
+# Everyday commands for an ESP32-P4 board running the SeedSigner MicroPython port
+# (kdmukai/seedsigner-micropython-builder), over the board's USB-UART cable.
+#
+#   p4 log [--reset]   board log, read-only (Ctrl+C quits, the app keeps running);
+#                      --reset restarts the board first to show the whole boot
+#   p4 repl            MicroPython REPL via mpremote (Ctrl+C stops the app, Ctrl+D restarts it)
+#   p4 deploy [args]   builder's overlay lane: tools/deploy_app.py --mode overlay
+#   p4 undeploy        builder's overlay lane: tools/deploy_app.py --mode overlay-clear
+#   p4 flash <dir>     flash a dist folder (the one holding flash_args), as in the builder README
+#   p4 chip            print the chip type and revision
+#   p4 attach|detach   WSL only: hand the board to WSL / back to Windows (usbipd-win)
+#
+# Commands that talk to the board attach it to WSL first if it isn't there.
+#
+# Environment:
+#   P4_PORT     serial port (default /dev/ttyACM0)
+#   P4_USB_ID   usbipd hardware id (default 1a86:55d3, the board's CH343 USB-UART)
+#   P4_PY       python with esptool, pyserial and mpremote (default ~/esptool-venv/bin/python)
+#   P4_BUILDER  seedsigner-micropython-builder checkout (default: next to this devkit)
+
+set -euo pipefail
+
+DEVKIT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+PORT="${P4_PORT:-/dev/ttyACM0}"
+USB_ID="${P4_USB_ID:-1a86:55d3}"
+PY="${P4_PY:-$HOME/esptool-venv/bin/python}"
+BUILDER="${P4_BUILDER:-$(dirname "$DEVKIT")/seedsigner-micropython-builder}"
+USBIPD="/mnt/c/Program Files/usbipd-win/usbipd.exe"
+
+die() { echo "p4: $*" >&2; exit 1; }
+usage() { awk 'NR > 2 && /^#/ { sub(/^# ?/, ""); print; next } NR > 2 { exit }' "$0"; exit "${1:-0}"; }
+
+attach() {
+  [ -e "$PORT" ] && return 0
+  if [ -x "$USBIPD" ]; then
+    echo "p4: attaching the board ($USB_ID) to WSL..." >&2
+    "$USBIPD" attach --wsl --hardware-id "$USB_ID" 2>&1 | tr -d '\r' | grep -v '^usbipd: info:' >&2 || true
+    for _ in $(seq 20); do [ -e "$PORT" ] && return 0; sleep 0.5; done
+  fi
+  die "no $PORT. Is the board plugged in, on its USB-UART port, with a data cable?"
+}
+
+# Groups added with usermod only reach new logins; borrow dialout for older shells.
+need_port() {
+  attach
+  if [ ! -w "$PORT" ] && id -nG "$USER" | grep -qw dialout && ! id -nG | grep -qw dialout; then
+    exec sg dialout -c "$(printf '%q ' "$0" "$CMD" "$@")"
+  fi
+  [ -w "$PORT" ] || die "no write access to $PORT (sudo usermod -aG dialout \$USER, then log in again)"
+}
+
+CMD="${1:-}"; [ $# -gt 0 ] && shift
+case "$CMD" in
+  attach) attach; echo "$PORT" ;;
+
+  detach)
+    [ -x "$USBIPD" ] || die "usbipd-win not found"
+    "$USBIPD" detach --hardware-id "$USB_ID" 2>&1 | tr -d '\r'
+    echo "p4: the board is back on Windows (a COM port there)" ;;
+
+  log)
+    need_port "$@"
+    # Read-only, so nothing typed here reaches the board (Ctrl+C there stops the app;
+    # `p4 repl` is for that). Opening the port leaves RTS/DTR as the kernel raised them,
+    # both high, which doesn't reset. Lowering them one at a time passes through
+    # RTS-high/DTR-low, which pulls EN low and restarts the board: --reset does that on
+    # purpose, after the port is open, so the whole boot is captured.
+    echo "p4: board log on $PORT. Ctrl+C quits (the app keeps running)." >&2
+    exec "$PY" -I -c '
+import sys, time, serial
+port, reset = sys.argv[1], sys.argv[2] == "--reset"
+try:
+    s = serial.Serial(port, 115200, timeout=0.2)
+    if reset:
+        s.dtr = False; s.rts = True; time.sleep(0.1); s.rts = False
+    out = sys.stdout.buffer
+    while True:
+        b = s.read(4096)
+        if b:
+            out.write(b.replace(b"\r\n", b"\n")); out.flush()
+except KeyboardInterrupt:
+    pass
+except serial.SerialException as e:
+    sys.exit("p4: lost the board (%s). Replugged? Run p4 log again." % e)
+' "$PORT" "${1:-}" ;;
+
+  repl)
+    need_port "$@"
+    exec "$PY" -m mpremote connect "$PORT" repl ;;
+
+  deploy|undeploy)
+    need_port "$@"
+    [ -f "$BUILDER/tools/deploy_app.py" ] || die "no builder checkout at $BUILDER (set P4_BUILDER)"
+    mode=overlay; [ "$CMD" = undeploy ] && mode=overlay-clear
+    cd "$BUILDER"
+    exec "$PY" -I tools/deploy_app.py --mode "$mode" --port "$PORT" "$@" ;;
+
+  flash)
+    [ $# -eq 1 ] || die "usage: p4 flash <dist-dir>   (the folder holding flash_args)"
+    dir="$(cd "$1" && pwd)" || die "no such folder: $1"
+    [ -f "$dir/flash_args" ] || die "$dir has no flash_args"
+    need_port "$@"
+    echo "p4: flashing $dir"
+    cd "$dir"
+    exec "$PY" -m esptool --chip esp32p4 -p "$PORT" write-flash @flash_args ;;
+
+  chip)
+    need_port "$@"
+    exec "$PY" -m esptool -p "$PORT" chip-id ;;
+
+  -h|--help|help|"") usage ;;
+  *) echo "p4: unknown command '$CMD'" >&2; usage 1 ;;
+esac
