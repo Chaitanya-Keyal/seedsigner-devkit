@@ -1,0 +1,24 @@
+diff --git a/opt/pi02w-dev/board/boot_cmdline.txt b/opt/pi02w-dev/board/boot_cmdline.txt
+index 8f486bb..f7918c6 100644
+--- a/opt/pi02w-dev/board/boot_cmdline.txt
++++ b/opt/pi02w-dev/board/boot_cmdline.txt
+@@ -1 +1 @@
+-console=tty1 ipv6.disable=1
++console=tty2 ipv6.disable=1
+diff --git a/opt/pi02w-dev/board/boot_config.txt b/opt/pi02w-dev/board/boot_config.txt
+index 5423fd7..97fbd5f 100644
+--- a/opt/pi02w-dev/board/boot_config.txt
++++ b/opt/pi02w-dev/board/boot_config.txt
+@@ -22,9 +22,9 @@ disable_splash=1
+ # Wifi and bluetooth stay enabled (release adds disable-wifi/disable-bt here)
+ 
+ # USB relay: expose the USB port as an ethernet gadget when plugged into a
+-# computer (see docs/dev_images.md). dwc2 is built dual-role, so a keyboard
+-# on an OTG adapter still works.
+-dtoverlay=dwc2
++# computer (see docs/dev_images.md). Off: in host mode dwc2 fails on a keyboard
++# on an OTG adapter (error -71), so the default dwc_otg driver runs the port.
++#dtoverlay=dwc2
+ 
+ # HDMI console output even when the display is plugged in after boot
+ hdmi_force_hotplug=1

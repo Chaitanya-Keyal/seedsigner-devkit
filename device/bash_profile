@@ -1,0 +1,2 @@
+# Login shells (tty1, ssh) read this; keep everything in .bashrc
+[ -f /root/.bashrc ] && . /root/.bashrc

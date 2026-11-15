@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+#
+# Deploy a local seedsigner checkout (a clone or a git worktree) to the
+# seedsigner-os -dev pi, then restart the app.
+#
+#   ss-deploy [checkout-dir] [--no-restart]
+#
+# Set SEEDSIGNER_HOST to the device's ssh host (default: seedsigner-dev).
+#
+# Differs from seedsigner-os's docs/scripts/rsync-to-seedsigner.sh in two ways
+# that matter for worktrees: it follows symlinks (-L), so the symlinked
+# translations submodule arrives as real files, and it writes a minimal .git
+# (HEAD, the branch ref, config and the one commit object, marked shallow) on the
+# device instead of copying .git, which is a file in a worktree. That is enough for
+# every git command the app's Version screen runs.
+#
+# The device keeps its own venv/, compiled translations (*.mo) and settings.json:
+# they are excluded, and rsync never deletes excluded paths.
+
+set -euo pipefail
+
+HOST="${SEEDSIGNER_HOST:-seedsigner-dev}"
+DEST="/mnt/data/seedsigner"
+SRC="$PWD"
+RESTART=1
+
+for arg in "$@"; do
+  case "$arg" in
+    --no-restart) RESTART=0 ;;
+    -*) echo "Unknown option: $arg" >&2; exit 1 ;;
+    *) SRC="$arg" ;;
+  esac
+done
+
+cd "$SRC"
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+if [ ! -f src/main.py ] || [ ! -d src/seedsigner ]; then
+  echo "$ROOT doesn't look like a seedsigner checkout" >&2
+  exit 1
+fi
+
+BRANCH="$(git symbolic-ref --short -q HEAD || true)"
+SHA="$(git rev-parse HEAD)"
+ORIGIN="$(git remote get-url origin 2>/dev/null || true)"
+echo "Deploying $ROOT (${BRANCH:-detached} at ${SHA:0:8}) to $HOST:$DEST"
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo "  note: uncommitted changes are deployed too; the Version screen shows only the commit"
+fi
+
+# Files end up owned by root: git refuses a repo owned by another user
+rsync -aL --no-owner --no-group --delete --info=stats1 \
+  --exclude=.git \
+  --exclude=venv/ --exclude=.venv/ \
+  --exclude=__pycache__/ --exclude='*.pyc' --exclude=.pytest_cache/ \
+  --exclude=seedsigner-screenshots/ --exclude=coverage_html_report/ \
+  --exclude=enclosures/ \
+  --exclude='*.mo' --exclude=settings.json \
+  --exclude=Proposal.md --exclude=AGENTS.md \
+  ./ "$HOST:$DEST/"
+
+if [ -n "$BRANCH" ]; then
+  HEAD_LINE="ref: refs/heads/$BRANCH"
+else
+  HEAD_LINE="$SHA"
+fi
+COMMIT="$(git cat-file commit HEAD | base64 -w0)"
+
+ssh "$HOST" "DEST='$DEST' BRANCH='$BRANCH' SHA='$SHA' ORIGIN='$ORIGIN' HEAD_LINE='$HEAD_LINE' COMMIT='$COMMIT' RESTART='$RESTART' sh -s" <<'REMOTE'
+set -e
+chown root:root "$DEST"
+rm -rf "$DEST/.git"
+mkdir -p "$DEST/.git/refs/heads" "$DEST/.git/refs/tags" "$DEST/.git/objects"
+printf '%s\n' "$HEAD_LINE" > "$DEST/.git/HEAD"
+if [ -n "$BRANCH" ]; then
+  mkdir -p "$(dirname "$DEST/.git/refs/heads/$BRANCH")"
+  printf '%s\n' "$SHA" > "$DEST/.git/refs/heads/$BRANCH"
+fi
+if [ -n "$ORIGIN" ]; then
+  printf '[remote "origin"]\n\turl = %s\n' "$ORIGIN" > "$DEST/.git/config"
+fi
+printf '%s' "$COMMIT" | base64 -d | git -C "$DEST" hash-object -t commit -w --stdin >/dev/null
+printf '%s\n' "$SHA" > "$DEST/.git/shallow"
+
+if [ -x "$DEST/venv/bin/python" ]; then
+  cd "$DEST"
+  venv/bin/python setup.py -q compile_catalog >/dev/null 2>&1 \
+    || echo "  warning: compile_catalog failed; translations may be stale"
+fi
+
+if [ "$RESTART" = 1 ]; then
+  seedsigner restart
+fi
+REMOTE

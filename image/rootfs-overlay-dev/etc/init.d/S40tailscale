@@ -1,0 +1,74 @@
+#!/bin/sh
+#
+# Local addition (not upstream): Tailscale, so the device is reachable by name on
+# whatever network it joins.
+#
+# Uses Tailscale's official static arm binaries rather than a Buildroot package
+# (this Buildroot can't bootstrap Go on an arm64 build host). On first boot they
+# are copied from a "tailscale/" folder on the boot partition to the data
+# partition, so they don't take up RAM in the initramfs. Runs in
+# userspace-networking mode, since this kernel has no TUN device. Login state
+# lives on the data partition, so it survives reboots. The first login uses an
+# auth key from the boot partition; delete that file once the device shows up in
+# the tailnet.
+
+DAEMON="tailscaled"
+PIDFILE="/var/run/$DAEMON.pid"
+TS_DIR="/mnt/data/tailscale"
+BOOT_MNT="/mnt/microsd"
+AUTHKEY_FILE="$BOOT_MNT/tailscale-authkey"
+LOG="/var/log/tailscale-init.log"
+
+start() {
+  (
+    # /mnt/data is mounted by S30devdata, the boot partition by mdev
+    for i in $(seq 1 30); do
+      grep -q " /mnt/data " /proc/mounts && grep -q " $BOOT_MNT " /proc/mounts && break
+      sleep 1
+    done
+
+    mkdir -p "$TS_DIR/bin" "$TS_DIR/state"
+    for bin in tailscale tailscaled; do
+      if [ -f "$BOOT_MNT/tailscale/$bin" ] && ! cmp -s "$BOOT_MNT/tailscale/$bin" "$TS_DIR/bin/$bin"; then
+        cp "$BOOT_MNT/tailscale/$bin" "$TS_DIR/bin/$bin"
+      fi
+      chmod 755 "$TS_DIR/bin/$bin" 2>/dev/null
+    done
+    if [ ! -x "$TS_DIR/bin/tailscaled" ]; then
+      echo "no tailscaled in $TS_DIR/bin or $BOOT_MNT/tailscale"
+      exit 0
+    fi
+    ln -sf "$TS_DIR/bin/tailscale" /usr/bin/tailscale
+
+    start-stop-daemon -S -q -b -m -p "$PIDFILE" -x "$TS_DIR/bin/tailscaled" -- \
+      --statedir="$TS_DIR/state" --tun=userspace-networking
+
+    sleep 5
+    if [ -f "$AUTHKEY_FILE" ] && ! tailscale status >/dev/null 2>&1; then
+      tailscale up --authkey="$(tr -d ' \r\n' < "$AUTHKEY_FILE")" \
+        --hostname=seedsigner-dev --timeout=300s
+    fi
+  ) >"$LOG" 2>&1 &
+}
+
+case "$1" in
+  start)
+    printf 'Starting %s: ' "$DAEMON"
+    start
+    echo "OK"
+    ;;
+  stop)
+    printf 'Stopping %s: ' "$DAEMON"
+    start-stop-daemon -K -q -p "$PIDFILE"
+    [ $? = 0 ] && echo "OK" || echo "FAIL"
+    ;;
+  restart)
+    "$0" stop
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+
+exit 0

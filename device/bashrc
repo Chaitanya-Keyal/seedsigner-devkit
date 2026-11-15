@@ -1,0 +1,19 @@
+# Interactive shell setup for the dev image (persists: /root is on /mnt/data)
+[ -z "$PS1" ] && return
+
+PS1="\[\e[1;32m\]\u@\h\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ "
+HISTFILE=/root/.bash_history
+HISTSIZE=5000
+HISTFILESIZE=10000
+HISTCONTROL=ignoredups:erasedups
+shopt -s histappend checkwinsize
+
+alias ls="ls --color=auto"
+alias ll="ls -lah"
+alias app="cd /mnt/data/seedsigner"
+alias applog="seedsigner stop; cd /mnt/data/seedsigner/src && ../venv/bin/python3 main.py"
+alias logs="tail -n 50 -f /var/log/seedsigner.log"
+
+if [ -f /usr/share/bash-completion/bash_completion ]; then
+  . /usr/share/bash-completion/bash_completion
+fi
