@@ -18,7 +18,8 @@
 #   P4_PORT     serial port (default /dev/ttyACM0)
 #   P4_USB_ID   usbipd hardware id (default 1a86:55d3, the board's CH343 USB-UART)
 #   P4_PY       python with esptool, pyserial and mpremote (default ~/esptool-venv/bin/python)
-#   P4_BUILDER  seedsigner-micropython-builder checkout (default: next to this devkit)
+#   P4_BUILDER  seedsigner-micropython-builder checkout
+#               (default: micropython/seedsigner-micropython-builder next to this devkit)
 
 set -euo pipefail
 
@@ -26,7 +27,7 @@ DEVKIT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 PORT="${P4_PORT:-/dev/ttyACM0}"
 USB_ID="${P4_USB_ID:-1a86:55d3}"
 PY="${P4_PY:-$HOME/esptool-venv/bin/python}"
-BUILDER="${P4_BUILDER:-$(dirname "$DEVKIT")/seedsigner-micropython-builder}"
+BUILDER="${P4_BUILDER:-$(dirname "$DEVKIT")/micropython/seedsigner-micropython-builder}"
 USBIPD="/mnt/c/Program Files/usbipd-win/usbipd.exe"
 
 die() { echo "p4: $*" >&2; exit 1; }

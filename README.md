@@ -152,11 +152,22 @@ replugging the board needs nothing extra. While it's attached, Windows has no CO
 for it. Bind it once from an admin prompt (`usbipd bind --hardware-id 1a86:55d3`), and
 add yourself to `dialout`.
 
-The script's header lists the environment variables it reads: the port, the Python with
-esptool, pyserial and mpremote (default `~/esptool-venv`), and the builder checkout
-(default: next to this devkit). The builder's own `.env` sets `SS_APP_DIR` to the app
-checkout that `p4 deploy` pushes; it must be on a branch that matches the flashed
-firmware (`integration/lvgl-mpy`).
+`p4` expects the builder in a `micropython/` folder next to this devkit, laid out the way
+the builder's tools look for their inputs by default (its siblings `seedsigner` and
+`embit`):
+
+```
+seedsigner-devkit/
+micropython/
+  seedsigner-micropython-builder/
+  seedsigner/    the app, on a branch matching the flashed firmware (integration/lvgl-mpy)
+  embit/
+```
+
+`p4 deploy` pushes that `seedsigner` checkout; the builder's `.env` (`SS_APP_DIR`,
+`SS_EMBIT_DIR`) can point elsewhere. The script's header lists the environment variables
+it reads: the port, the Python with esptool, pyserial and mpremote (default
+`~/esptool-venv`), and `P4_BUILDER` for a builder somewhere else.
 
 ## Known issues with the -dev image
 
