@@ -1,26 +1,25 @@
 """
-Display and input hacks for a seedsigner-os -dev device. They wrap the
-display drivers' show_image and the buttons' GPIO reads, so the app itself still renders
-and reads input exactly as usual.
+Display and input hacks for a seedsigner-os -dev device. They wrap the display drivers'
+show_image and the buttons' GPIO reads, so the app itself still renders and reads input
+exactly as usual.
 
 1. Cracked LCD: if /mnt/data/display-region exists ("SIZE X Y", e.g. "132 108 0"), each
    frame is scaled to SIZE x SIZE and drawn at (X, Y) on the LCD; the rest is black.
+
 2. HDMI mirror: if /mnt/data/display-mirror exists ("SCALE VT", e.g. "1 3" for actual
-   size on tty3), each frame is also drawn centred on a black HDMI framebuffer, scaled
-   up SCALE times (nearest neighbour; "auto" = the largest whole-number scale that fits
-   the framebuffer, which may be 16- or 32-bit), but only
-   while virtual terminal VT is the active one (Alt+F<VT>), so it never draws over the
-   shell on tty1. Switching to that VT repaints the last frame. The screen is drawn
-   inside a simple sketch of the device (d-pad, KEY1-3, the display type as a title). Every
-   driver is wrapped, so Settings > Display type (st7789 240x240 / 320x240, ili9341
-   320x240) changes the mirror.
-   The physical 240x240 panel is always drawn by the original driver: the app's frame
-   letterboxed to fit, or "Showing on HDMI monitor" while the mirror is on screen.
+   size on tty3), each frame is also drawn centred on the HDMI framebuffer (16- or
+   32-bit), scaled up SCALE times (nearest neighbour; "auto" = the largest whole-number
+   scale that fits), but only while virtual terminal VT is the active one (Alt+F<VT>),
+   so it never draws over the shell on tty1. Switching to that VT repaints the last
+   frame. The screen sits inside a simple sketch of the device (d-pad, KEY1-3, the
+   display type as a title). Every driver is wrapped, so Settings > Display type
+   (st7789 240x240 / 320x240, ili9341 320x240) changes the mirror. The physical 240x240
+   panel is always drawn by the original driver: the app's frame letterboxed to fit, or
+   "Showing on HDMI monitor" while the mirror is on screen.
 
 3. USB keyboard: while the mirror is on and its VT is active, keys act as the hardware
-   buttons: arrows = joystick, Enter/Space =
-   joystick press, 1/2/3 = KEY1/KEY2/KEY3. On any other VT (e.g. the tty1 shell) the
-   keyboard doesn't reach the app.
+   buttons: arrows = joystick, Enter/Space = joystick press, 1/2/3 = KEY1/KEY2/KEY3. On
+   any other VT (e.g. the tty1 shell) the keyboard doesn't reach the app.
 
 4. Service starts: when the service starts the app (boot or `seedsigner restart`), HDMI
    switches to the mirror's VT, and the app's stdout and stderr (otherwise /dev/null) go
@@ -29,7 +28,7 @@ and reads input exactly as usual.
 
 The two config files are re-read as frames are drawn; delete one to switch that hack
 off. This file lives in the app venv's site-packages, which ss-deploy never touches;
-recreating the venv removes it; reinstall with host/ss-device-setup from seedsigner-devkit.
+recreating the venv removes it, so reinstall it with host/ss-device-setup.
 """
 import importlib.abc
 import importlib.machinery

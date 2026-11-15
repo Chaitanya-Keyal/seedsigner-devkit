@@ -13,8 +13,8 @@ None of this changes the app. It all lives outside the app's source tree.
 | `host/ss-deploy` | your machine | Syncs a checkout (clone or git worktree) to the device and restarts the app |
 | `host/ss-device-setup` | your machine | Creates the app's venv if needed and installs the `device/` files |
 | `device/sitecustomize.py` | device | HDMI mirror, USB keyboard as buttons, cropped LCD region, service log |
-| `device/bashrc`, `device/bash_profile` | device | A friendlier root shell |
-| `image/` | image build | Changes to seedsigner-os: Tailscale, console fixes, a `wifi.txt` example |
+| `device/bashrc`, `device/bash_profile` | device | Root shell: prompt, history, aliases `ll`, `app`, `applog`, `logs` |
+| `image/` | image build | Changes to seedsigner-os: Tailscale, console and reboot fixes, a `wifi.txt` example |
 
 Tested on a Pi Zero 2 W with the Waveshare 1.3" LCD HAT.
 
@@ -48,7 +48,7 @@ git apply <devkit>/image/pi02w-dev.patch
 
    ```
    ss-deploy <checkout> --no-restart    # the app's code
-   ss-device-setup [--hdmi]             # venv (first run, about 3 minutes), the device files
+   ss-device-setup [--hdmi]             # venv (first run, ~3 minutes), the device files
    ```
 
    `--hdmi` turns on the HDMI mirror and keyboard (below); leave it out if you won't
@@ -94,9 +94,9 @@ the monitor switches to that VT. Alt+F1 shows the shell and Alt+F3 the app again
 while the mirror is on screen. Changing Settings > Display type changes the sketch too.
 
 **USB keyboard** (through an OTG adapter on the Pi's data port): while the mirror is on
-and its VT active, the arrow keys are the joystick, Enter or Space is the joystick press, and 1,
-2 and 3 are KEY1-3. The sketch lights up pressed buttons. On any other VT the keyboard
-only reaches the shell.
+and its VT active, the arrow keys are the joystick, Enter or Space is the joystick
+press, and 1, 2 and 3 are KEY1-3. The sketch lights up pressed buttons. On any other VT
+the keyboard only reaches the shell.
 
 **Cropped LCD**: `/mnt/data/display-region` holds `SIZE X Y`. Every frame is scaled to
 `SIZE`x`SIZE` and drawn at (`X`, `Y`) on the LCD, the rest black. Useful when part of
@@ -111,7 +111,8 @@ ssh seedsigner-dev tail -f /var/log/seedsigner.log
 ```
 
 `logs` in a device shell does the same, and `applog` stops the service and runs the app
-in the foreground.
+in the foreground (Ctrl+C, then `seedsigner start` to go back). `app` changes to the
+app's directory, `/mnt/data/seedsigner`.
 
 ## Tailscale
 
@@ -131,7 +132,8 @@ The device joins as `seedsigner-dev`.
 ## Known issues with the -dev image
 
 - The cpufreq driver fails to probe (error -95), so the CPU runs at 600 MHz.
-  `force_turbo=1` in `config.txt` would lock it at full speed, but the app doesn't need it.
+  `force_turbo=1` in `config.txt` would lock it at full speed, but the app doesn't need
+  it.
 - The dropbear host key is regenerated on every boot, so ssh warns about a changed key.
   `StrictHostKeyChecking accept-new` plus clearing the old entry, or a per-host
   `UserKnownHostsFile /dev/null`, avoids the prompt.
