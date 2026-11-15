@@ -19,7 +19,7 @@ None of this changes the app. It all lives outside the app's source tree.
 | `device/sitecustomize.py` | device | HDMI mirror, USB keyboard as buttons, cropped LCD region, service log |
 | `device/bashrc`, `device/bash_profile` | device | Root shell: prompt, history, aliases `ll`, `app`, `applog`, `logs` |
 | `image/` | image build | Changes to seedsigner-os: Tailscale, console and reboot fixes, a `wifi.txt` example |
-| `host/p4` | your machine | Log, REPL, overlay deploy and flashing for an ESP32-P4 board |
+| `host/p4` | your machine (Linux; WSL adds usbipd attach) | Board log, REPL, overlay deploy and flashing for an ESP32-P4 on the MicroPython port |
 
 Tested on a Pi Zero 2 W with the Waveshare 1.3" LCD HAT.
 
@@ -168,19 +168,20 @@ replugging the board needs nothing extra. While it's attached, Windows has no CO
 for it. Bind it once from an admin prompt (`usbipd bind --hardware-id 1a86:55d3`), and
 add yourself to `dialout`.
 
-`p4` expects the builder in a `micropython/` folder next to this devkit, laid out the way
-the builder's tools look for their inputs by default (its siblings `seedsigner` and
-`embit`):
+`p4 deploy` and `p4 undeploy` need a builder checkout. `p4` uses `P4_BUILDER` if set,
+otherwise the first that exists of these, next to this devkit:
 
 ```
 seedsigner-devkit/
-micropython/
-  seedsigner-micropython-builder/
-  seedsigner/    the app, on a branch matching the flashed firmware (integration/lvgl-mpy)
-  embit/
+micropython/seedsigner-micropython-builder/   or
+seedsigner-micropython-builder/
 ```
 
-`p4 deploy` pushes that `seedsigner` checkout; the builder's `.env` (`SS_APP_DIR`,
-`SS_EMBIT_DIR`) can point elsewhere. The script's header lists the environment variables
-it reads: the port, the Python with esptool, pyserial and mpremote (default
-`~/esptool-venv`), and `P4_BUILDER` for a builder somewhere else.
+The builder pushes the app from its sibling `seedsigner` checkout (and reads `embit` from
+its sibling `embit`), which must be on a branch matching the flashed firmware
+(`integration/lvgl-mpy`); the builder's `.env` (`SS_APP_DIR`, `SS_EMBIT_DIR`) can point
+elsewhere.
+
+The Python that runs esptool, pyserial and mpremote is `P4_PY` if set, otherwise
+`~/esptool-venv/bin/python` (the venv the builder's README creates) when it exists,
+otherwise `python3`. The script's header lists every environment variable it reads.

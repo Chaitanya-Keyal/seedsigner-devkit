@@ -17,17 +17,28 @@
 # Environment:
 #   P4_PORT     serial port (default /dev/ttyACM0)
 #   P4_USB_ID   usbipd hardware id (default 1a86:55d3, the board's CH343 USB-UART)
-#   P4_PY       python with esptool, pyserial and mpremote (default ~/esptool-venv/bin/python)
-#   P4_BUILDER  seedsigner-micropython-builder checkout
-#               (default: micropython/seedsigner-micropython-builder next to this devkit)
+#   P4_PY       python with esptool, pyserial and mpremote (default: ~/esptool-venv/bin/python,
+#               the venv the builder's README sets up, else python3)
+#   P4_BUILDER  seedsigner-micropython-builder checkout, for deploy/undeploy (default: the
+#               first of micropython/seedsigner-micropython-builder and
+#               seedsigner-micropython-builder next to this devkit)
 
 set -euo pipefail
 
 DEVKIT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 PORT="${P4_PORT:-/dev/ttyACM0}"
 USB_ID="${P4_USB_ID:-1a86:55d3}"
-PY="${P4_PY:-$HOME/esptool-venv/bin/python}"
-BUILDER="${P4_BUILDER:-$(dirname "$DEVKIT")/micropython/seedsigner-micropython-builder}"
+PY="${P4_PY:-}"
+if [ -z "$PY" ]; then
+  PY=python3; [ -x "$HOME/esptool-venv/bin/python" ] && PY="$HOME/esptool-venv/bin/python"
+fi
+BUILDER="${P4_BUILDER:-}"
+if [ -z "$BUILDER" ]; then
+  for b in "$(dirname "$DEVKIT")/micropython/seedsigner-micropython-builder" \
+           "$(dirname "$DEVKIT")/seedsigner-micropython-builder"; do
+    [ -d "$b" ] && { BUILDER="$b"; break; }
+  done
+fi
 USBIPD="/mnt/c/Program Files/usbipd-win/usbipd.exe"
 
 die() { echo "p4: $*" >&2; exit 1; }
@@ -93,7 +104,7 @@ except serial.SerialException as e:
 
   deploy|undeploy)
     need_port "$@"
-    [ -f "$BUILDER/tools/deploy_app.py" ] || die "no builder checkout at $BUILDER (set P4_BUILDER)"
+    [ -n "$BUILDER" ] && [ -f "$BUILDER/tools/deploy_app.py" ] || die "no seedsigner-micropython-builder checkout found (set P4_BUILDER)"
     mode=overlay; [ "$CMD" = undeploy ] && mode=overlay-clear
     cd "$BUILDER"
     exec "$PY" -I tools/deploy_app.py --mode "$mode" --port "$PORT" "$@" ;;
