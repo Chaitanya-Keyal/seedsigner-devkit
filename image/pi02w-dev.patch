@@ -22,3 +22,15 @@ index 5423fd7..97fbd5f 100644
  
  # HDMI console output even when the display is plugged in after boot
  hdmi_force_hotplug=1
+diff --git a/opt/pi02w-dev/board/kernel.config.fragment b/opt/pi02w-dev/board/kernel.config.fragment
+index a025564..f694d41 100644
+--- a/opt/pi02w-dev/board/kernel.config.fragment
++++ b/opt/pi02w-dev/board/kernel.config.fragment
+@@ -64,3 +64,7 @@ CONFIG_AUXDISPLAY=y
+ 
+ # Persistent ext4 data partition (/dev/mmcblk0p2)
+ CONFIG_EXT4_FS=y
++
++# The BCM2835 watchdog driver is what restarts the board; without it reboot halts
++CONFIG_WATCHDOG=y
++CONFIG_BCM2835_WDT=y

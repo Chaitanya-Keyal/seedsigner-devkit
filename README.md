@@ -24,19 +24,20 @@ In a seedsigner-os checkout, before building with `--dev`:
 
 ```
 cp -r <devkit>/image/rootfs-overlay-dev opt/
-git apply <devkit>/image/pi02w-dev-boot.patch
+git apply <devkit>/image/pi02w-dev.patch
 ```
 
 - `etc/init.d/S40tailscale`: starts Tailscale at boot (see below).
 - `etc/profile.d/root-home.sh`: init starts the HDMI console shells with `HOME=/`, so
   they never read `/root/.bashrc`; this points them at `/root`.
-- `pi02w-dev-boot.patch` (other boards: make the same two edits in their
-  `board/boot_config.txt` and `boot_cmdline.txt`):
+- `pi02w-dev.patch` (other boards: make the same edits in their `board/` files):
   - comments out `dtoverlay=dwc2`. In host mode `dwc2` fails on a keyboard on an OTG
     adapter (`error -71`); the default `dwc_otg` driver works. This also turns off the
     USB-network gadget, so connect over Wi-Fi.
   - moves the kernel console from tty1 to tty2. init also starts a shell on tty1, so
     two shells shared that screen and split every keystroke.
+  - adds the BCM2835 watchdog driver to the kernel. It's what restarts the board, so
+    without it `reboot` halts instead.
 
 ## Setting up a freshly flashed card
 
@@ -129,7 +130,6 @@ The device joins as `seedsigner-dev`.
 
 ## Known issues with the -dev image
 
-- `reboot` halts instead of rebooting; power-cycle the board.
 - The cpufreq driver fails to probe (error -95), so the CPU runs at 600 MHz.
   `force_turbo=1` in `config.txt` would lock it at full speed, but the app doesn't need it.
 - The dropbear host key is regenerated on every boot, so ssh warns about a changed key.
