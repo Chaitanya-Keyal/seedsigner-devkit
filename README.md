@@ -18,7 +18,7 @@ None of this changes the app. It all lives outside the app's source tree.
 | `host/ss-device-setup` | your machine | Creates the app's venv if needed and installs the `device/` files |
 | `device/sitecustomize.py` | device | HDMI mirror, USB keyboard as buttons, cropped LCD region, service log |
 | `device/bashrc`, `device/bash_profile` | device | Root shell: prompt, history, aliases `ll`, `app`, `applog`, `logs` |
-| `image/` | image build | Changes to seedsigner-os: Tailscale, console and reboot fixes, a `wifi.txt` example |
+| `image/` | image build | Changes to seedsigner-os: Tailscale, console and reboot fixes, fixed HDMI mode, full CPU speed, a `wifi.txt` example |
 | `host/p4` | your machine (Linux; WSL adds usbipd attach) | Board log, REPL, overlay deploy and flashing for an ESP32-P4 on the MicroPython port |
 
 Tested on a Pi Zero 2 W with the Waveshare 1.3" LCD HAT.
@@ -43,6 +43,11 @@ git apply <devkit>/image/pi02w-dev.patch
     two shells shared that screen and split every keystroke.
   - adds the BCM2835 watchdog driver to the kernel. It's what restarts the board, so
     without it `reboot` halts instead.
+  - fixes HDMI at 1080p60 with full-range colour and no overscan border. With
+    `hdmi_force_hotplug` alone, a board booted without a monitor falls back to 640x480,
+    and the TV mode's limited-range colour shows black as dark grey on a PC monitor.
+    Pick another `hdmi_mode` if your monitor can't do 1080p.
+  - sets `force_turbo=1`, so the CPU runs at 1 GHz instead of 600 MHz (see below).
 
 ## Setting up a freshly flashed card
 
@@ -141,7 +146,8 @@ The device joins as `seedsigner-dev`.
 - On the Pi Zero 2 W the cpufreq driver fails to probe (error -95), so the CPU runs at
   600 MHz instead of 1 GHz, release images included
   ([seedsigner-os#129](https://github.com/SeedSigner/seedsigner-os/issues/129)).
-  `force_turbo=1` in `config.txt` runs it at full speed.
+  `pi02w-dev.patch` sets `force_turbo=1`, which runs it at full speed; on an image
+  without it, add the line to `config.txt` on the boot partition.
 - The dropbear host key is regenerated on every boot, so ssh warns about a changed key.
   `StrictHostKeyChecking accept-new` plus clearing the old entry, or a per-host
   `UserKnownHostsFile /dev/null`, avoids the prompt.

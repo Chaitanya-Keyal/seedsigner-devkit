@@ -6,10 +6,10 @@ index 8f486bb..f7918c6 100644
 -console=tty1 ipv6.disable=1
 +console=tty2 ipv6.disable=1
 diff --git a/opt/pi02w-dev/board/boot_config.txt b/opt/pi02w-dev/board/boot_config.txt
-index 5423fd7..97fbd5f 100644
+index 5423fd7..a1e8f7d 100644
 --- a/opt/pi02w-dev/board/boot_config.txt
 +++ b/opt/pi02w-dev/board/boot_config.txt
-@@ -22,9 +22,9 @@ disable_splash=1
+@@ -22,9 +22,21 @@ disable_splash=1
  # Wifi and bluetooth stay enabled (release adds disable-wifi/disable-bt here)
  
  # USB relay: expose the USB port as an ethernet gadget when plugged into a
@@ -22,6 +22,18 @@ index 5423fd7..97fbd5f 100644
  
  # HDMI console output even when the display is plugged in after boot
  hdmi_force_hotplug=1
++
++# HDMI fixed at 1080p60 with full-range colour and no overscan border, so the console
++# and mirror look the same whether or not a monitor was in at boot (hdmi_force_hotplug
++# alone falls back to 640x480) and black shows as black on a PC monitor
++hdmi_group=1
++hdmi_mode=16
++hdmi_pixel_encoding=2
++disable_overscan=1
++
++# Full CPU speed (1 GHz): the kernel cpufreq driver fails to load on this board
++# (seedsigner-os#129), so without this the CPU stays at 600 MHz
++force_turbo=1
 diff --git a/opt/pi02w-dev/board/kernel.config.fragment b/opt/pi02w-dev/board/kernel.config.fragment
 index a025564..f694d41 100644
 --- a/opt/pi02w-dev/board/kernel.config.fragment
