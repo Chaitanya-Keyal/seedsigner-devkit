@@ -56,8 +56,7 @@ git apply <devkit>/image/pi02w-dev.patch
    ss-device-setup [--hdmi]             # venv (first run, ~3 minutes), the device files
    ```
 
-   `--hdmi` turns on the HDMI mirror and keyboard (below); leave it out if you won't
-   connect a monitor.
+   `--hdmi` turns on the HDMI mirror and keyboard (below).
 
 An ssh host for the device is assumed. Both scripts use `SEEDSIGNER_HOST` (default
 `seedsigner-dev`):
@@ -93,10 +92,13 @@ app runs, and can be deleted to switch it off again.
 **HDMI mirror**: `/mnt/data/display-mirror` holds `SCALE VT`; `ss-device-setup --hdmi`
 writes `1 3`. Each frame is drawn on the HDMI framebuffer inside a sketch of the device,
 scaled up `SCALE` times (`auto` picks the largest whole scale that fits), while virtual
-terminal `VT` is active. When the service starts the app (at boot, or after a deploy)
-the monitor switches to that VT. Alt+F1 shows the shell and Alt+F3 the app again, or
-`chvt 1` / `chvt 3` over SSH. The device's own LCD shows "Showing on HDMI monitor"
-while the mirror is on screen. Changing Settings > Display type changes the sketch too.
+terminal `VT` is active and a monitor is plugged in. Plugging a monitor in, or starting
+the app with one connected, switches HDMI to that VT; unplugging it gives the LCD back.
+Alt+F1 shows the shell and Alt+F3 the app again, or `chvt 1` / `chvt 3` over SSH. The
+device's own LCD shows "Showing on HDMI monitor" while the mirror is on screen. The
+monitor is detected from the board's HDMI hotplug pin; boards without one (the Pi 4)
+treat a monitor as always connected. Changing Settings > Display type changes the
+sketch too.
 
 **USB keyboard** (through an OTG adapter on the Pi's data port): while the mirror is on
 and its VT active, the arrow keys are the joystick, Enter or Space is the joystick

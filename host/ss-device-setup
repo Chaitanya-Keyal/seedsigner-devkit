@@ -7,8 +7,8 @@
 #     service log).
 #   - device/bashrc and bash_profile into /root (persistent on the -dev image).
 #   - With --hdmi: /mnt/data/display-mirror set to "1 3" (HDMI mirror and keyboard as
-#     buttons, actual size on tty3), if it doesn't exist. Without a monitor leave it out:
-#     while the mirror is on, the device's own screen says "Showing on HDMI monitor".
+#     buttons, actual size on tty3), if it doesn't exist. It only takes over the LCD
+#     while a monitor is plugged in.
 #
 #   ss-device-setup [--hdmi] [--no-restart]
 #

@@ -15,16 +15,18 @@ exactly as usual.
    display type as a title). Every driver is wrapped, so Settings > Display type
    (st7789 240x240 / 320x240, ili9341 320x240) changes the mirror. The physical 240x240
    panel is always drawn by the original driver: the app's frame letterboxed to fit, or
-   "Showing on HDMI monitor" while the mirror is on screen.
+   "Showing on HDMI monitor" while the mirror is on screen. Plugging a monitor in
+   switches to VT; unplugging it gives the LCD back.
 
 3. USB keyboard: while the mirror is on and its VT is active, keys act as the hardware
    buttons: arrows = joystick, Enter/Space = joystick press, 1/2/3 = KEY1/KEY2/KEY3. On
    any other VT (e.g. the tty1 shell) the keyboard doesn't reach the app.
 
 4. Service starts: when the service starts the app (boot or `seedsigner restart`), HDMI
-   switches to the mirror's VT, and the app's stdout and stderr (otherwise /dev/null) go
-   to /var/log/seedsigner.log, in RAM like the rest of /var/log; the previous run's log
-   is kept as seedsigner.log.1. A run from a terminal is left alone.
+   switches to the mirror's VT if a monitor is in, and the app's stdout and stderr
+   (otherwise /dev/null) go to /var/log/seedsigner.log, in RAM like the rest of
+   /var/log; the previous run's log is kept as seedsigner.log.1. A run from a terminal
+   is left alone.
 
 The two config files are re-read as frames are drawn; delete one to switch that hack
 off. This file lives in the app venv's site-packages, which ss-deploy never touches;
@@ -69,6 +71,40 @@ def _read_mirror_config():
         return scale, int(fields[1])
     except (OSError, ValueError, IndexError):
         return None
+
+
+_hpd = None  # (GPIO registers, offset, bit) of the HDMI hotplug pin, once looked up
+
+
+def _hdmi_monitor():
+    """True while a monitor is plugged in. The dev image's hdmi_force_hotplug keeps the
+    HDMI output on with nothing attached, so read the board's hotplug pin (HDMI_HPD_N,
+    active low) instead. Boards without one (the Pi 4) count as always plugged in."""
+    global _hpd
+    if _hpd is None:
+        _hpd = False
+        try:
+            import mmap
+
+            with open("/proc/device-tree/soc/gpio@7e200000/gpio-line-names", "rb") as f:
+                pin = f.read().split(b"\0").index(b"HDMI_HPD_N")
+            fd = os.open("/dev/gpiomem", os.O_RDONLY | os.O_SYNC)
+            regs = mmap.mmap(fd, 4096, mmap.MAP_SHARED, mmap.PROT_READ)
+            os.close(fd)
+            _hpd = (regs, 0x34 + 4 * (pin // 32), pin % 32)  # GPLEV0/GPLEV1
+        except (OSError, ValueError):
+            pass
+    if not _hpd:
+        return True
+    regs, offset, bit = _hpd
+    return not int.from_bytes(regs[offset:offset + 4], "little") >> bit & 1
+
+
+def _switch_vt(vt):
+    import fcntl
+
+    with open("/dev/tty0") as tty:
+        fcntl.ioctl(tty, 0x5606, vt)  # VT_ACTIVATE
 
 
 _FONT = "/mnt/data/seedsigner/src/seedsigner/resources/fonts/OpenSans-SemiBold.ttf"
@@ -178,9 +214,9 @@ class _HdmiMirror:
 
     @classmethod
     def is_active(cls):
-        """True while the mirror is configured and its VT is the one on screen."""
+        """True while the mirror is on, its VT is on screen and a monitor is in."""
         config = _read_mirror_config()
-        return bool(config) and cls._current_vt() == f"tty{config[1]}"
+        return bool(config) and cls._current_vt() == f"tty{config[1]}" and _hdmi_monitor()
 
     @staticmethod
     def _current_vt():
@@ -298,9 +334,14 @@ class _HdmiMirror:
         import time
 
         allocated = None
+        monitor = _hdmi_monitor()
         while True:
             time.sleep(0.3)
             config = _read_mirror_config()
+            # Plugging a monitor in shows the app on it; unplugging gives the LCD back
+            present = _hdmi_monitor()
+            plugged_in, changed = present and not monitor, present != monitor
+            monitor = present
             # Alt+F<n> ignores a VT nothing has opened yet, and after boot nothing opens
             # the mirror's; opening its tty device allocates it.
             if config and config[1] != allocated:
@@ -309,15 +350,18 @@ class _HdmiMirror:
                     allocated = config[1]
                 except OSError:
                     pass
+            if config and plugged_in:
+                _switch_vt(config[1])
             vt = self._current_vt()
-            if config and vt == f"tty{config[1]}" and vt != self._active_vt:
+            on_mirror = config and vt == f"tty{config[1]}"
+            if on_mirror and (vt != self._active_vt or plugged_in):
                 self._hide_cursor(vt)
                 with self._lock:
                     try:
                         self._draw(self._last_frame, clear=True)
                     except Exception as e:
                         print(f"hdmi mirror: {e}", file=sys.stderr)
-            if vt != self._active_vt:
+            if vt != self._active_vt or changed:
                 for callback in self._vt_change_callbacks:
                     try:
                         callback()
@@ -619,10 +663,8 @@ sys.meta_path.insert(0, _Finder())
 _LOG = "/var/log/seedsigner.log"
 if sys.argv[0].endswith("main.py") and os.path.realpath("/proc/self/fd/2") == "/dev/null":
     _mirror_config = _read_mirror_config()
-    if _mirror_config:
-        import fcntl
-        with open("/dev/tty0") as _tty:
-            fcntl.ioctl(_tty, 0x5606, _mirror_config[1])  # VT_ACTIVATE: app on HDMI
+    if _mirror_config and _hdmi_monitor():
+        _switch_vt(_mirror_config[1])  # app on HDMI
     try:
         os.replace(_LOG, _LOG + ".1")
     except OSError:
