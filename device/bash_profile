@@ -1,2 +1,18 @@
 # Login shells (tty1, ssh) read this; keep everything in .bashrc
 [ -f /root/.bashrc ] && . /root/.bashrc
+
+# Interactive ssh logins: the devkit's additions, under the image's /etc/motd
+if [ -n "$SSH_CONNECTION" ] && [[ $- == *i* ]]; then
+  cat <<'MOTD'
+  seedsigner-devkit
+
+  * app | applog | logs          cd to the app | run it in the foreground |
+                                 follow its log (/var/log/seedsigner.log)
+  * chvt 3 | chvt 1              HDMI: show the app | the shell
+                                 (Alt+F3 | Alt+F1 on a keyboard)
+  * /mnt/data/display-mirror     "SCALE VT": HDMI mirror and keyboard as
+                                 buttons (delete the file to turn off)
+  * /mnt/data/display-region     "SIZE X Y": draw the app in part of the LCD
+
+MOTD
+fi

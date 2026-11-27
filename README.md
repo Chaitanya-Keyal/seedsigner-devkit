@@ -17,7 +17,7 @@ None of this changes the app. It all lives outside the app's source tree.
 | `host/ss-deploy` | your machine | Syncs a checkout (clone or git worktree) to the device and restarts the app |
 | `host/ss-device-setup` | your machine | Creates the app's venv if needed and installs the `device/` files |
 | `device/sitecustomize.py` | device | HDMI mirror, USB keyboard as buttons, cropped LCD region, service log |
-| `device/bashrc`, `device/bash_profile` | device | Root shell: prompt, history, aliases `ll`, `app`, `applog`, `logs` |
+| `device/bashrc`, `device/bash_profile` | device | Root shell: prompt, history, aliases `ll`, `app`, `applog`, `logs`, and a note of the devkit commands on ssh login |
 | `image/` | image build | Changes to seedsigner-os: Tailscale, console and reboot fixes, fixed HDMI mode, full CPU speed, a `wifi.txt` example |
 | `host/p4` | your machine (Linux; WSL adds usbipd attach) | Board log, REPL, overlay deploy and flashing for an ESP32-P4 on the MicroPython port |
 
